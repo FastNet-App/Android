@@ -1,0 +1,56 @@
+﻿name: Create Release (Bot)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'شماره تگ (مانند v2.3.8)'
+        required: true
+        default: 'v2.3.8'
+      title:
+        description: 'عنوان نسخه (Release Title)'
+        required: true
+        default: 'FastNet Release'
+      body:
+        description: 'توضیحات و تغییرات نسخه'
+        required: false
+        default: 'بهبود پایداری سرورها و ارتقاء عملکرد'
+      file_url:
+        description: 'لینک مستقیم دانلود فایل نصبی (اختیاری)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish Release by GitHub Bot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Asset if URL provided
+        id: download_asset
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.file_url != '' }}
+        run: |
+          filename=$(basename ${{ github.event.inputs.file_url }})
+          echo Downloading asset: $filename
+          curl -sSL -o $filename ${{ github.event.inputs.file_url }}
+          echo asset_path=$filename >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event.inputs.title || format('FastNet {0}', github.ref_name) }}
+          body: ${{ github.event.inputs.body || 'انتشار خودکار نسخه جدید FastNet' }}
+          draft: false
+          prerelease: false
+          files: ${{ steps.download_asset.outputs.asset_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
